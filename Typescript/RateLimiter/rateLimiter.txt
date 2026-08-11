@@ -1,0 +1,45 @@
+// Implemented ratelimiter using token buckets.
+
+interface TokenBucket {
+    tokens: number; // Max number of tokens
+    lastRefilTimestamp: number;
+}
+
+export class TokenBucketRateLimiter {
+    private buckets: Map<string, TokenBucket> = new Map();
+
+    constructor(
+        private readonly capacity:number, // Max number of tokens per bucket
+        private readonly refillRate: number // Tokens refil rate per sec
+    ) {}
+
+    // Returns boolean
+    isRequestAllowd(clientId: string): boolean {
+        const now = Date.now();
+
+        let bucket = this.buckets.get(clientId);
+        if(!bucket) {
+            bucket = { tokens: this.capacity, lastRefilTimestamp: now };
+            this.buckets.set(clientId, bucket);
+        }
+
+        this.refillBucket(bucket, now);
+
+        if(bucket?.tokens > 0) {
+            bucket.tokens--;
+            return true;
+        }
+        
+        return false;
+    }
+
+    refillBucket(bucket: TokenBucket, now: number) {
+        const elapsedInMs = (now - bucket.lastRefilTimestamp) / 1000;
+        const tokensToAdd = elapsedInMs * this.refillRate;
+
+        if (tokensToAdd > 0){
+            bucket.tokens = Math.min(this.capacity, tokensToAdd);
+            bucket.lastRefilTimestamp = now;
+        }
+    }
+}
